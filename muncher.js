@@ -8,6 +8,8 @@
  * Copyright (c) 2013 John Rocela
  * Licensed under the MIT license.
  * https://github.com/gruntjs/grunt/blob/master/LICENSE-MIT
+ *
+ * @BUG names with "-"
  */
 
 'use strict';
@@ -124,7 +126,7 @@ Muncher.prototype.build = function(file, context) {
 
     switch (context) {
         case "html":
-            this.rewriteHtml((this.compress) ? this.compressHtml(content): content, file);
+            this.rewriteHtml(content, file);
         break;
         case "css": 
             this.rewriteCss(content);
@@ -190,8 +192,8 @@ Muncher.prototype.parseCss = function(css) {
         var selector = style.selector;
 
         style.selectors.forEach(function(selector) {
-            var tid = /#[\w]+/gmi.exec(selector),
-                tcl = /\.[\w]+/gmi.exec(selector);
+            var tid = /#[\w-]+/gmi.exec(selector),
+                tcl = /\.[\w-]+/gmi.exec(selector);
 
             if (tid) {
                 var id = tid[0].replace('#', '');
@@ -256,7 +258,32 @@ Muncher.prototype.rewriteHtml = function(html, to) {
 }
 
 Muncher.prototype.rewriteCssBlock = function(html) {
-    return html;
+    var     that = this,
+        document = jsdom(html),
+            html = $(document);
+
+    html.find('*').each(function(i, elem) {
+        var target = html.find(elem);
+
+        if (target.is('style')) {
+            var text = target.text();
+
+            // id
+            for (var key in that.map["id"]) {
+                text = text.replace(new RegExp("#" + key, "gi"), "#" + that.map["id"][key]);
+            }
+
+            // class
+            for (var key in that.map["class"]) {
+                text = text.replace(new RegExp("." + key, "gi"), "." + that.map["class"][key]);
+            }
+            
+            target.text((that.compress) ? that.compressCss(text): text);
+        }
+
+    });
+
+    return document.innerHTML;
 }
 
 Muncher.prototype.rewriteCss = function() { }
@@ -299,7 +326,12 @@ Muncher.prototype.compressHtml = function(html, compressHead){
     return allHTML;
 }
 
-Muncher.prototype.compressCss = function() { }
+Muncher.prototype.compressCss = function(css) {
+    css = css.replace(/(\r\n|\n|\r|\t)/gm, "");
+    css = css.replace(/\s+/g, " ");
+    return css.replace(/\/\*(.*?)\*\//gm, "");
+}
+
 Muncher.prototype.compressJs = function() { }
 
 // create muncher
