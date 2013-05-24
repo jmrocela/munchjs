@@ -149,23 +149,15 @@ Muncher.prototype.parseHtml = function(html) {
            classes = target.attr('class');
 
         if (id) {
-            if (!that.map["id"][id]) {
-                that.map["id"][id] = hashids.encrypt(that.mapCounter);
-                that.mapCounter++;
-            }
+            that.addId(id);
         }
 
         if (classes) {
             var newClass = [];
 
             classes.split(' ').forEach(function(cl) {
-
                 if (!that.ignoreClasses.indexOf(cl)) return; // shoul be a list of no-nos
-
-                if (!that.map["class"][cl]) {
-                    that.map["class"][cl] = hashids.encrypt(that.mapCounter); 
-                    that.mapCounter++;
-                }
+                that.addClass(cl);
             });
 
         }
@@ -175,12 +167,16 @@ Muncher.prototype.parseHtml = function(html) {
             that.parseCss(style);
         }
 
-        if (target.is('script')) {
-            var  script = target.text();
-            that.parseScript(script);
-        }
-
     });
+
+    // parse JS
+    var script = '';
+    html.filter('script').each(function(i, tag) {
+        script += this.text || this.textContent || this.innerHTML || '';
+    });
+    if (script != '') {
+        that.parseJs(script);
+    }
 
 }
 
@@ -197,27 +193,76 @@ Muncher.prototype.parseCss = function(css) {
 
             if (tid) {
                 var id = tid[0].replace('#', '');
-                if (!that.map["id"][id]) {
-                    that.map["id"][id] = hashids.encrypt(that.mapCounter);
-                    that.mapCounter++;
-                }
+                that.addId(id);
             }
 
             if (tcl) {
                 var cl = tcl[0].replace('.', '');
                 if (!that.ignoreClasses.indexOf(cl)) return; // shoul be a list of no-nos
-
-                if (!that.map["class"][cl]) {
-                    that.map["class"][cl] = hashids.encrypt(that.mapCounter); 
-                    that.mapCounter++;
-                }
+                that.addClass(cl);
             }
         });
 
     });
 }
 
-Muncher.prototype.parseJs = function() { }
+Muncher.prototype.addClass = function(cl) {
+    var that = this;
+
+    var addClass = function(cls) {
+        if (!that.map["class"][cls]) {
+            that.map["class"][cls] = hashids.encrypt(that.mapCounter); 
+            that.mapCounter++;
+        }
+    }
+
+    if (typeof cl == 'object'){
+        if (cl) {
+            cl.forEach(function(pass) {
+                addClass(pass);
+            });
+        }
+    } else {
+        addClass(cl);
+    } 
+}
+
+Muncher.prototype.addId = function(id) {
+    if (!this.map["id"][id]) {
+        this.map["id"][id] = hashids.encrypt(this.mapCounter);
+        this.mapCounter++;
+    }
+}
+
+Muncher.prototype.parseJs = function(js) {
+    // jquery
+    // var pass1 = /(\$|jQuery)\([\'"](.*?)[\'"]/gi.exec(js);
+
+    // class
+    var pass2 = /addClass\([\'"](.*?)[\'"]/gi.exec(js);
+    if (pass2) this.addClass(pass2[1].split(' '));
+
+    var pass3 = /removeClass\([\'"](.*?)[\'"]/gi.exec(js);
+    if (pass3) this.addClass(pass3[1].split(' '));
+
+    // id and class
+    var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi.exec(js);
+    if (pass4) this.addClass(pass4[1].split(' '));
+
+    var pass5 = /getElementById\([\'"](.*?)[\'"]/gi.exec(js);
+    if (pass5) this.addId(pass5[1]);
+
+    // attr
+    var pass6 = /attr\([\'"](id|class)[\'"], [\'"](.*?)[\'"]/gi.exec(js);
+    var pass7 = /setAttribute\([\'"](id|class)[\'"], [\'"](.*?)[\'"]/gi.exec(js);
+    
+    if (pass6 && pass6[1] == 'class') this.addClass(pass6[2].split(' '), 2);
+    if (pass6 && pass6[1] == 'id') this.addId(pass6[2]);
+
+    if (pass7 && pass7[1] == 'class') this.addClass(pass7[2].split(' '), 2);
+    if (pass7 && pass7[1] == 'id') this.addId(pass7[2]);
+
+}
 
 // replaces the ids and classes in the files specified
 Muncher.prototype.rewriteHtml = function(html, to) {
@@ -277,7 +322,7 @@ Muncher.prototype.rewriteCssBlock = function(html) {
             for (var key in that.map["class"]) {
                 text = text.replace(new RegExp("." + key, "gi"), "." + that.map["class"][key]);
             }
-            
+
             target.text((that.compress) ? that.compressCss(text): text);
         }
 
@@ -289,7 +334,28 @@ Muncher.prototype.rewriteCssBlock = function(html) {
 Muncher.prototype.rewriteCss = function() { }
 
 Muncher.prototype.rewriteJsBlock = function(html) {
-    return html;
+    var     that = this,
+        document = jsdom(html),
+            html = $(document);
+
+    html.filter('script').each(function((i, elem) {
+        var target = html.find(elem),
+              text = target.text();
+        
+        // id
+        for (var key in that.map["id"]) {
+            text = text.replace(new RegExp("#" + key, "gi"), "#" + that.map["id"][key]);
+        }
+
+        // class
+        for (var key in that.map["class"]) {
+            text = text.replace(new RegExp("." + key, "gi"), "." + that.map["class"][key]);
+        }
+
+        target.text(text);
+    });
+
+    return document.innerHTML;
 }
 
 Muncher.prototype.rewriteJs = function() { }
