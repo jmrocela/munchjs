@@ -1,3 +1,4 @@
+#!/bin/env node
 /**
  * MUNCH.js
  * http://jmrocela.github.com/munchjs
