@@ -1,13 +1,13 @@
-# Muncher.js
+# Munch.js
 
-muncher.js is a utility that rewrites classes and ids in CSS, HTML, and JavaScript files in order to save precious bytes and obfuscate your code. based on [Craig Campbell](http://www.craigiam.com/)'s [HTML-Muncher](http://htmlmuncher.com).
+Munch.js is a utility that rewrites classes and ids in CSS, HTML, and JavaScript files in order to save precious bytes and obfuscate your code. based on [Craig Campbell](http://www.craigiam.com/)'s [HTML-Muncher](http://htmlmuncher.com).
 
-Install by using `npm install muncher`
+Install by using `npm install munch`
 
 This module uses [Hashids](https://npmjs.org/package/hashids) to generate the class and ID names. Just to look more googly.
 
 ## USAGE
-You can run muncher through CLI by doing this.
+You can run munch through CLI by doing this.
 ```
 munch --css file1.css,/path/to/css1,file2.css,file3.css --html /path/to/views1,file1.html,/path/to/views2/,file3.html --js main.js,/path/to/js
 ```
