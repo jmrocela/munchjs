@@ -250,19 +250,20 @@ Muncher.prototype.parseCss = function(css) {
         if (!style.selectors) return; 
 
         style.selectors.forEach(function(selector) {
-            var    match = null,
-                original = selector,
-                     tid = /#[\w\-]+/gi,
-                     tcl = /\.[\w\-]+/gi;
+            var tid = selector.match(/#[\w\-]+/gi),
+                tcl = selector.match(/\.[\w\-]+/gi);
 
-            while ((match = tid.exec(selector)) !== null) {
-                var id = match[0].replace('#', '');
-                that.addId(id);
+            if (tid) {
+                tid.forEach(function(match) {
+                    var id = match.replace('#', '');
+                    that.addId(id);
+                });
             }
-
-            while ((match = tcl.exec(selector)) !== null) {
-                var cl = match[0].replace('.', '');
-                that.addClass(cl);
+            if (tcl) {
+                tcl.forEach(function(match) {
+                    var cl = match.replace('.', '');
+                    that.addClass(cl);
+                });
             }
         });
 
@@ -380,19 +381,22 @@ Muncher.prototype.rewriteCssBlock = function(html) {
                 var selector = style.selector;
 
                 style.selectors.forEach(function(selector) {
-                    var    match = null,
-                        original = selector,
-                             tid = /#[\w\-]+/gi,
-                             tcl = /\.[\w\-]+/gi;
+                    var original = selector,
+                             tid = selector.match(/#[\w\-]+/gi),
+                             tcl = selector.match(/\.[\w\-]+/gi);
 
-                    while ((match = tid.exec(selector)) !== null) {
-                        selector = selector.replace(new RegExp(match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match[0].replace('#', '')]);
+                    if (tid) {
+                        tid.forEach(function(match) {
+                            match = match.replace('#', '');
+                            selector = selector.replace(new RegExp("#" + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match]);
+                        });
                     }
-
-                    while ((match = tcl.exec(selector)) !== null) {
-                        match[0] = match[0].replace('.', '');
-                        if (!that.ignoreClasses.indexOf(match[0])) continue;
-                        selector = selector.replace(new RegExp("\\." + match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match[0]]);
+                    if (tcl) {
+                        tcl.forEach(function(match) {
+                            match = match.replace('.', '');
+                            if (!that.ignoreClasses.indexOf(match)) return;
+                            selector = selector.replace(new RegExp("\\." + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match]);
+                        });
                     }
 
                     text = text.replace(original, selector);
@@ -417,20 +421,22 @@ Muncher.prototype.rewriteCss = function(css, to) {
         if (!style.selectors) return; 
 
         style.selectors.forEach(function(selector) {
-            var    match = null,
-                original = selector,
-                     tid = /#[\w\-]+/gi,
-                     tcl = /\.[\w\-]+/gi;
+            var original = selector,
+                     tid = selector.match(/#[\w\-]+/gi),
+                     tcl = selector.match(/\.[\w\-]+/gi);
 
-            while ((match = tid.exec(selector)) !== null) {
-                selector = selector.replace(new RegExp(match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match[0].replace('#', '')]);
+            if (tid) {
+                tid.forEach(function(match) {
+                    match = match.replace('#', '');
+                    selector = selector.replace(new RegExp("#" + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match]);
+                });
             }
-
-            var match = null;
-            while ((match = tcl.exec(selector)) !== null) {
-                match[0] = match[0].replace('.', '');
-                if (!that.ignoreClasses.indexOf(match[0])) continue;
-                selector = selector.replace(new RegExp("\\." + match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match[0]]);
+            if (tcl) {
+                tcl.forEach(function(match) {
+                    match = match.replace('.', '');
+                    if (!that.ignoreClasses.indexOf(match)) return;
+                    selector = selector.replace(new RegExp("\\." + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match]);
+                });
             }
 
             text = text.replace(original, selector);
