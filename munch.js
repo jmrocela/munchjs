@@ -55,12 +55,11 @@ var Muncher = function(options) {
 // constructor
 Muncher.prototype.run = function(args) {
 
-    var htmlPaths = args["html"].split(','),
-             that = this;
+    var that = this;
 
     console.log('Processing:');
-    if (htmlPaths) {
-        htmlPaths.forEach(function(path) {
+    if (args["html"]) {
+        args["html"].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.htmlExtension);
 
@@ -74,10 +73,40 @@ Muncher.prototype.run = function(args) {
         });
     }
 
+    if (args['css']) {
+        args['css'].split(',').forEach(function(path) {
+            if (fs.statSync(path).isDirectory()) {
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.css');
+
+                files.forEach(function(file) {
+                    that.parse(file, 'css');
+                });
+
+            } else if (fs.statSync(path).isFile()) {
+                that.parse(path, 'css');
+            }
+        });
+    }
+
+    if (args['js']) {
+        args['js'].split(',').forEach(function(path) {
+            if (fs.statSync(path).isDirectory()) {
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.js');
+
+                files.forEach(function(file) {
+                    that.parse(file, 'js');
+                });
+
+            } else if (fs.statSync(path).isFile()) {
+                that.parse(path, 'js');
+            }
+        });
+    }
+
     console.log('Building:');
     // we do it again so that we are sure we have everything we need
-    if (htmlPaths) {
-        htmlPaths.forEach(function(path) {
+    if (args["html"]) {
+        args["html"].split(',').forEach(function(path) {
             if (fs.lstatSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.htmlExtension);
 
@@ -87,6 +116,36 @@ Muncher.prototype.run = function(args) {
 
             } else if (fs.lstatSync(path).isFile()) {
                 that.build(path, 'html');
+            }
+        });
+    }
+
+    if (args['css']) {
+        args['css'].split(',').forEach(function(path) {
+            if (fs.statSync(path).isDirectory()) {
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.css');
+
+                files.forEach(function(file) {
+                    that.build(file, 'css');
+                });
+
+            } else if (fs.statSync(path).isFile()) {
+                that.build(path, 'css');
+            }
+        });
+    }
+
+    if (args['js']) {
+        args['js'].split(',').forEach(function(path) {
+            if (fs.statSync(path).isDirectory()) {
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.js');
+
+                files.forEach(function(file) {
+                    that.build(file, 'js');
+                });
+
+            } else if (fs.statSync(path).isFile()) {
+                that.build(path, 'js');
             }
         });
     }
@@ -131,10 +190,10 @@ Muncher.prototype.build = function(file, context) {
             this.rewriteHtml(content, file);
         break;
         case "css": 
-            this.rewriteCss(content);
+            this.rewriteCss(content, file);
         break;
         case "js": 
-            this.rewriteJs(content);
+            this.rewriteJs(content, file);
         break;
     }
 
@@ -188,19 +247,21 @@ Muncher.prototype.parseCss = function(css) {
          css = parse(css);
 
     css.stylesheet.rules.forEach(function(style) {
-        var selector = style.selector;
+        if (!style.selectors) return; 
 
         style.selectors.forEach(function(selector) {
-            var tid = /#[\w-]+/gmi.exec(selector),
-                tcl = /\.[\w-]+/gmi.exec(selector);
+            var    match = null,
+                original = selector,
+                     tid = /#[\w\-]+/gi,
+                     tcl = /\.[\w\-]+/gi;
 
-            if (tid) {
-                var id = tid[0].replace('#', '');
+            while ((match = tid.exec(selector)) !== null) {
+                var id = match[0].replace('#', '');
                 that.addId(id);
             }
 
-            if (tcl) {
-                var cl = tcl[0].replace('.', '');
+            while ((match = tcl.exec(selector)) !== null) {
+                var cl = match[0].replace('.', '');
                 that.addClass(cl);
             }
         });
@@ -321,19 +382,20 @@ Muncher.prototype.rewriteCssBlock = function(html) {
                 style.selectors.forEach(function(selector) {
                     var    match = null,
                         original = selector,
-                             tid = /#[\w-]+/gi,
-                             tcl = /\.[\w-]+/gi;
+                             tid = /#[\w\-]+/gi,
+                             tcl = /\.[\w\-]+/gi;
 
                     while ((match = tid.exec(selector)) !== null) {
-                        selector = selector.replace(new RegExp(match[0], "gi"), '#' + that.map["id"][match[0].replace('#', '')]);
+                        selector = selector.replace(new RegExp(match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match[0].replace('#', '')]);
                     }
 
                     while ((match = tcl.exec(selector)) !== null) {
-                        selector = selector.replace(new RegExp(match[0], "gi"), '.' + that.map["class"][match[0].replace('.', '')]);
+                        match[0] = match[0].replace('.', '');
+                        if (!that.ignoreClasses.indexOf(match[0])) continue;
+                        selector = selector.replace(new RegExp("\\." + match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match[0]]);
                     }
 
                     text = text.replace(original, selector);
-
                 });
 
             });
@@ -346,7 +408,42 @@ Muncher.prototype.rewriteCssBlock = function(html) {
     return document.innerHTML;
 }
 
-Muncher.prototype.rewriteCss = function(css, to) { }
+Muncher.prototype.rewriteCss = function(css, to) {
+    var that = this,
+        text = css,
+         css = parse(css)
+
+    css.stylesheet.rules.forEach(function(style) {
+        if (!style.selectors) return; 
+
+        style.selectors.forEach(function(selector) {
+            var    match = null,
+                original = selector,
+                     tid = /#[\w\-]+/gi,
+                     tcl = /\.[\w\-]+/gi;
+
+            while ((match = tid.exec(selector)) !== null) {
+                selector = selector.replace(new RegExp(match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match[0].replace('#', '')]);
+            }
+
+            var match = null;
+            while ((match = tcl.exec(selector)) !== null) {
+                match[0] = match[0].replace('.', '');
+                if (!that.ignoreClasses.indexOf(match[0])) continue;
+                selector = selector.replace(new RegExp("\\." + match[0].replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match[0]]);
+            }
+
+            text = text.replace(original, selector);
+
+        });
+
+    });
+
+    fs.writeFileSync(to + '.munched', (this.compress) ? this.compressCss(text): text);
+
+    var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
+    console.log('Wrore to ' + to  + '.munched. Saved ' + percent.toFixed(2) + '%');
+}
 
 Muncher.prototype.rewriteJsBlock = function(html) {
     var     that = this,
@@ -362,6 +459,7 @@ Muncher.prototype.rewriteJsBlock = function(html) {
         // id and class
         var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi;
         while ((match = pass4.exec(js)) !== null) {
+            if (!that.ignoreClasses.indexOf(match[1])) continue;
             var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["class"][match[1]]);
             js = js.replace(match[0], passed);
         }
@@ -376,7 +474,15 @@ Muncher.prototype.rewriteJsBlock = function(html) {
         var pass7 = /setAttribute\([\'"](id|class)[\'"],\s[\'"](.+?)[\'"]/gi;
         while ((match = pass7.exec(js)) !== null) {
             var key = (match[1] == 'id') ? 'id': 'class';
-            var passed = match[0].replace(new RegExp(match[2], "gi"), that.map[key][match[2]]);
+            if (key == 'class') {
+                var passed = match[0];
+                match[2].split(' ').forEach(function(cls) {
+                    if (!that.ignoreClasses.indexOf(cls)) return;
+                    passed = passed.replace(new RegExp(cls, "gi"), that.map[key][cls]);
+                });
+            } else {
+                var passed = match[0].replace(new RegExp(match[2], "gi"), that.map[key][match[2]]);
+            }
             js = js.replace(match[0], passed);
         }
 
@@ -386,7 +492,47 @@ Muncher.prototype.rewriteJsBlock = function(html) {
     return document.innerHTML;
 }
 
-Muncher.prototype.rewriteJs = function(js, to) { }
+Muncher.prototype.rewriteJs = function(js, to) {
+    var  that = this,
+        match = null;
+
+    // id and class
+    var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi;
+    while ((match = pass4.exec(js)) !== null) {
+        if (!that.ignoreClasses.indexOf(match[1])) continue;
+        var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["class"][match[1]]);
+        js = js.replace(match[0], passed);
+    }
+
+    var pass5 = /getElementById\([\'"](.*?)[\'"]/gi;
+    while ((match = pass5.exec(js)) !== null) {
+        var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["id"][match[1]]);
+        js = js.replace(match[0], passed);
+    }
+
+    // attr
+    var pass7 = /setAttribute\([\'"](id|class)[\'"],\s[\'"](.+?)[\'"]/gi;
+    while ((match = pass7.exec(js)) !== null) {
+        var    key = (match[1] == 'id') ? 'id': 'class',
+            passed = '';
+
+        if (key == 'class') {
+            var passed = match[0];
+            match[2].split(' ').forEach(function(cls) {
+                if (!that.ignoreClasses.indexOf(cls)) return;
+                passed = passed.replace(new RegExp(cls, "gi"), that.map[key][cls]);
+            });
+        } else {
+            var passed = match[0].replace(new RegExp(match[2], "gi"), that.map[key][match[2]]);
+        }
+        js = js.replace(match[0], passed);
+    }
+
+    fs.writeFileSync(to + '.munched', (this.compress) ? this.compressJs(js): js);
+
+    var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
+    console.log('Wrore to ' + to  + '.munched. Saved ' + percent.toFixed(2) + '%');
+}
 
 // basic compress methods for each context
 Muncher.prototype.compressHtml = function(html, compressHead){
@@ -426,7 +572,9 @@ Muncher.prototype.compressCss = function(css) {
     return css.replace(/\/\*(.*?)\*\//gm, "");
 }
 
-Muncher.prototype.compressJs = function() { }
+Muncher.prototype.compressJs = function(js) {
+    return js;
+}
 
 Muncher.prototype.addJsParser = function(cb) {
     if (typeof cb == 'function') {
