@@ -239,11 +239,11 @@ Muncher.prototype.parseJs = function(js) {
     // var pass1 = /(\$|jQuery)\([\'"](.*?)[\'"]/gi.exec(js);
 
     // class
-    var pass2 = /addClass\([\'"](.*?)[\'"]/gi.exec(js);
-    if (pass2) this.addClass(pass2[1].split(' '));
+    // var pass2 = /addClass\([\'"](.*?)[\'"]/gi.exec(js);
+    // if (pass2) this.addClass(pass2[1].split(' '));
 
-    var pass3 = /removeClass\([\'"](.*?)[\'"]/gi.exec(js);
-    if (pass3) this.addClass(pass3[1].split(' '));
+    // var pass3 = /removeClass\([\'"](.*?)[\'"]/gi.exec(js);
+    // if (pass3) this.addClass(pass3[1].split(' '));
 
     // id and class
     var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi.exec(js);
@@ -253,11 +253,11 @@ Muncher.prototype.parseJs = function(js) {
     if (pass5) this.addId(pass5[1]);
 
     // attr
-    var pass6 = /attr\([\'"](id|class)[\'"], [\'"](.*?)[\'"]/gi.exec(js);
+    // var pass6 = /attr\([\'"](id|class)[\'"], [\'"](.*?)[\'"]/gi.exec(js);
     var pass7 = /setAttribute\([\'"](id|class)[\'"], [\'"](.*?)[\'"]/gi.exec(js);
     
-    if (pass6 && pass6[1] == 'class') this.addClass(pass6[2].split(' '), 2);
-    if (pass6 && pass6[1] == 'id') this.addId(pass6[2]);
+    // if (pass6 && pass6[1] == 'class') this.addClass(pass6[2].split(' '), 2);
+    // if (pass6 && pass6[1] == 'id') this.addId(pass6[2]);
 
     if (pass7 && pass7[1] == 'class') this.addClass(pass7[2].split(' '), 2);
     if (pass7 && pass7[1] == 'id') this.addId(pass7[2]);
@@ -338,21 +338,29 @@ Muncher.prototype.rewriteJsBlock = function(html) {
         document = jsdom(html),
             html = $(document);
 
-    html.filter('script').each(function((i, elem) {
+    html.find('script').each(function(i, elem) {
         var target = html.find(elem),
-              text = target.text();
-        
-        // id
-        for (var key in that.map["id"]) {
-            text = text.replace(new RegExp("#" + key, "gi"), "#" + that.map["id"][key]);
+        js = target.text();
+
+        var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi.exec(js);
+        if (pass4) {
+            var passed = pass4[0].replace(pass4[1], that.map["class"][pass4[1]]);
+            js.replace(pass4[0], passed);
         }
 
-        // class
-        for (var key in that.map["class"]) {
-            text = text.replace(new RegExp("." + key, "gi"), "." + that.map["class"][key]);
+        var pass5 = /getElementById\([\'"](.*?)[\'"]/gi.exec(js);
+        if (pass5) {
+            var passed = pass5[0].replace(pass5[1], that.map["id"][pass5[1]]);
+            console.log(js.replace(pass5[0], passed));
         }
 
-        target.text(text);
+        var pass7 = /setAttribute\([\'"](id|class)[\'"], [\'"](.*?)[\'"]/gi.exec(js);
+        if (pass7) {
+            var passed = pass7[0].replace(pass7[2], that.map["id"][pass7[2]]);
+            console.log(js.replace(pass7[0], passed));
+        }
+
+        target.text(js);
     });
 
     return document.innerHTML;
