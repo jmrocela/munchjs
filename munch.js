@@ -138,6 +138,8 @@ Muncher.prototype.build = function(file, context) {
         break;
     }
 
+    fs.writeFileSync('map.json', JSON.stringify(this.map, null, '\t'));
+
 }
 
 // builds the id and class maps
@@ -310,18 +312,32 @@ Muncher.prototype.rewriteCssBlock = function(html) {
         var target = html.find(elem);
 
         if (target.is('style')) {
-            var text = target.text();
+            var text = target.text(),
+                 css = parse(text);
 
-            // id
-            for (var key in that.map["id"]) {
-                text = text.replace(new RegExp("#" + key, "gi"), "#" + that.map["id"][key]);
-            }
+            css.stylesheet.rules.forEach(function(style) {
+                var selector = style.selector;
 
-            // class
-            for (var key in that.map["class"]) {
-                text = text.replace(new RegExp("." + key, "gi"), "." + that.map["class"][key]);
-            }
+                style.selectors.forEach(function(selector) {
+                    var    match = null,
+                        original = selector,
+                             tid = /#[\w-]+/gi,
+                             tcl = /\.[\w-]+/gi;
 
+                    while ((match = tid.exec(selector)) !== null) {
+                        selector = selector.replace(new RegExp(match[0], "gi"), '#' + that.map["id"][match[0].replace('#', '')]);
+                    }
+
+                    while ((match = tcl.exec(selector)) !== null) {
+                        selector = selector.replace(new RegExp(match[0], "gi"), '.' + that.map["class"][match[0].replace('.', '')]);
+                    }
+
+                    text = text.replace(original, selector);
+
+                });
+
+            });
+            
             target.text((that.compress) ? that.compressCss(text): text);
         }
 
