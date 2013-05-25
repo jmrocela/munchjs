@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Munchjs by jmrocela</title>
+    <title>Munch.js by jmrocela</title>
 
     <link rel="stylesheet" href="stylesheets/styles.css">
     <link rel="stylesheet" href="stylesheets/pygment_trac.css">
@@ -15,7 +15,7 @@
   <body>
     <div class="wrapper">
       <header>
-        <h1>Munchjs</h1>
+        <h1>Munch.js</h1>
         <p>munch.js is a utility that rewrites classes and ids in CSS, HTML, and JavaScript files in order to save precious bytes and obfuscate your code. based on http://htmlmuncher.com</p>
 
         <p class="view"><a href="https://github.com/jmrocela/munchjs">View the Project on GitHub <small>jmrocela/munchjs</small></a></p>
@@ -30,7 +30,7 @@
       <section>
         <h1>Munch.js</h1>
 
-<p>munch.js is a utility that rewrites classes and ids in CSS, HTML, and JavaScript files in order to save precious bytes and obfuscate your code. based on <a href="http://www.craigiam.com/">Craig Campbell</a>'s <a href="http://htmlmuncher.com">HTML-Muncher</a>.</p>
+<p>Munch.js is a utility that rewrites classes and ids in CSS, HTML, and JavaScript files in order to save precious bytes and obfuscate your code. based on <a href="http://www.craigiam.com/">Craig Campbell</a>'s <a href="http://htmlmuncher.com">HTML-Muncher</a>.</p>
 
 <p>Install by using <code>npm install munch</code></p>
 
@@ -38,7 +38,7 @@
 
 <h2>USAGE</h2>
 
-<p>You can run muncher through CLI by doing this.</p>
+<p>You can run munch through CLI by doing this.</p>
 
 <pre><code>munch --css file1.css,/path/to/css1,file2.css,file3.css --html /path/to/views1,file1.html,/path/to/views2/,file3.html --js main.js,/path/to/js
 </code></pre>
@@ -53,9 +53,11 @@
 
 <p><strong>--js {path/to/js}</strong> - js files to rewrite (comma separated list of directories and files)</p>
 
-<p><strong>--view-ext {extension}</strong> - sets the extension to look for in the view directory (defaults to html)</p>
-
 <p><strong>--ignore {classes,ids}</strong> - comma separated list of classes or ids to ignore when rewriting css (ie .sick_class,#sweet_id)</p>
+
+<h3>FEATURES CURRENTLY IN DEVELOPMENT</h3>
+
+<p><strong>--view-ext {extension}</strong> - sets the extension to look for in the view directory (defaults to html)</p>
 
 <p><strong>--compress-html</strong> - strips new line characters to compress html files specified with --html be careful when using this becuase it has not been thoroughly tested</p>
 
@@ -74,8 +76,6 @@
 <p><strong>--show-savings</strong> - will output how many bytes were saved by munching</p>
 
 <p><strong>--verbose</strong> - output more information while the script runs</p>
-
-<p><strong>--help</strong> - shows this menu</p>
       </section>
       <footer>
         <p>This project is maintained by <a href="https://github.com/jmrocela">jmrocela</a></p>
@@ -83,15 +83,16 @@
       </footer>
     </div>
     <script src="javascripts/scale.fix.js"></script>
-<script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-41202964-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
 
-  ga('create', 'UA-41202964-1', 'jmrocela.github.io');
-  ga('send', 'pageview');
-
-</script>    
   </body>
 </html>
