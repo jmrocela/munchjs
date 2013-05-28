@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * MUNCH.js
  * http://jmrocela.github.com/munchjs
@@ -23,9 +22,6 @@ var    path = require('path'),
     Hashids = require('hashids'),
     hashids = new Hashids("use the force harry");
 
-/** 
- *
- */
 var Muncher = function(args) {
 
     // tokens from files within views, css and js together
@@ -64,9 +60,9 @@ var Muncher = function(args) {
 
     // you may want to use another way for compressing CSS and JS
     this.compress = {
-        "view": true,
-        "css": false,
-        "js": false
+        "view": (args['compress-view'] === true),
+        "css": (args['compress-css'] === true),
+        "js": (args['compress-js'] === true)
     }
 
     // if we want to nag the CLI
@@ -101,132 +97,60 @@ Muncher.prototype.run = function() {
     var that = this;
 
     // run through the HTML files
-    if (that.paths["view"]) {
-        
-        that.echo(clc.bold('Processing Views'));
-
-        that.paths["view"].split(',').forEach(function(path) {
-            if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['view']);
-
-                files.forEach(function(file) {
-                    that.parse(file, 'html');
-                });
-
-            } else if (fs.statSync(path).isFile()) {
-                that.parse(path, 'html');
-            }
-        });
-        
-        that.echo(clc.green.bold('Finished!\n'));
-    }
-
-    if (that.paths['css']) {
-        
-        that.echo(clc.bold('Processing CSS'));
-
-        that.paths['css'].split(',').forEach(function(path) {
-            if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['css']);
-
-                files.forEach(function(file) {
-                    that.parse(file, 'css');
-                });
-
-            } else if (fs.statSync(path).isFile()) {
-                that.parse(path, 'css');
-            }
-        });
-        
-        that.echo(clc.green.bold('Finished!\n'));
-    }
-
-    if (that.paths['js']) {
-        
-        that.echo(clc.bold('Processing JS'));
-
-        that.paths['js'].split(',').forEach(function(path) {
-            if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['js']);
-
-                files.forEach(function(file) {
-                    that.parse(file, 'js');
-                });
-
-            } else if (fs.statSync(path).isFile()) {
-                that.parse(path, 'js');
-            }
-        });
-        
-        that.echo(clc.green.bold('Finished!\n'));
-    }
+    if (that.paths["view"]) that.parseDir(that.paths["view"], "view");
+    if (that.paths['css']) that.parseDir(that.paths["css"], "css");
+    if (that.paths['js']) that.parseDir(that.paths["js"], "js");
         
     that.echo(clc.bold('-------------------------------\nMapped ' + that.mapCounter + ' IDs and Classes.\n-------------------------------\n'));
 
     // we do it again so that we are sure we have everything we need
-    if (that.paths["view"]) {
+    if (that.paths["view"]) that.buildDir(that.paths["view"], "view");
+    if (that.paths['css']) that.buildDir(that.paths["css"], "css");
+    if (that.paths['js']) that.buildDir(that.paths["js"], "js");
 
-        that.echo(clc.bold('Rewriting Views'));
+}
 
-        that.paths["view"].split(',').forEach(function(path) {
-            if (fs.lstatSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['view']);
-
-                files.forEach(function(file) {
-                    that.build(file, 'html');
-                });
-
-            } else if (fs.lstatSync(path).isFile()) {
-                that.build(path, 'html');
-            }
-        });
+Muncher.prototype.parseDir = function(path, context) {
+    var that = this;
         
-        that.echo(clc.green.bold('Finished!\n'));
+    that.echo(clc.bold('Processing ' + context));
 
-    }
+    that.paths[context].split(',').forEach(function(path) {
+        if (fs.statSync(path).isDirectory()) {
+            var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions[context]);
 
-    if (that.paths['css']) {
+            files.forEach(function(file) {
+                that.parse(file, context);
+            });
 
-        that.echo(clc.bold('Rewriting CSS'));
+        } else if (fs.statSync(path).isFile()) {
+            that.parse(path, context);
+        }
+    });
+    
+    that.echo(clc.green.bold('Finished!\n'));
 
-        that.paths['css'].split(',').forEach(function(path) {
-            if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['css']);
+}
 
-                files.forEach(function(file) {
-                    that.build(file, 'css');
-                });
+Muncher.prototype.buildDir = function(path, context) {
+    var that = this;    
 
-            } else if (fs.statSync(path).isFile()) {
-                that.build(path, 'css');
-            }
-        });
-        
-        that.echo(clc.green.bold('Finished!\n'));
+    that.echo(clc.bold('Rewriting ' + context));
 
-    }
+    that.paths[context].split(',').forEach(function(path) {
+        if (fs.lstatSync(path).isDirectory()) {
+            var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions[context]);
 
-    if (that.paths['js']) {
+            files.forEach(function(file) {
+                that.build(file, context);
+            });
 
-        that.echo(clc.bold('Rewriting JS'));
-
-        that.paths['js'].split(',').forEach(function(path) {
-            if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['js']);
-
-                files.forEach(function(file) {
-                    that.build(file, 'js');
-                });
-
-            } else if (fs.statSync(path).isFile()) {
-                that.build(path, 'js');
-            }
-        });
-        
-        that.echo(clc.green.bold('Finished!\n'));
-
-    }
-
+        } else if (fs.lstatSync(path).isFile()) {
+            that.build(path, context);
+        }
+    });
+    
+    that.echo(clc.green.bold('Finished!\n'));
 }
 
 Muncher.prototype.echo = function(message) {
@@ -244,7 +168,7 @@ Muncher.prototype.parse = function(file, context) {
         this.files[file] = fs.statSync(file).size;
 
         switch (context) {
-            case "html":
+            case "view":
                 this.parseHtml(content);
             break;
             case "css": 
@@ -267,7 +191,7 @@ Muncher.prototype.build = function(file, context) {
     var content = fs.readFileSync(file, 'utf8').toString();
 
     switch (context) {
-        case "html":
+        case "view":
             this.rewriteHtml(content, file);
         break;
         case "css": 
@@ -444,11 +368,11 @@ Muncher.prototype.rewriteHtml = function(html, to) {
     html = this.rewriteJsBlock(html);
     html = this.rewriteCssBlock(html);
 
-    fs.writeFileSync(to + '.munched', (this.compress) ? this.compressHtml(html): html);
+    fs.writeFileSync(to + '.munched', (this.compress['view']) ? this.compressHtml(html): html);
 
     var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
-    that.echo(clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ' + to + '.munched');
-
+    var savings = (that.showSavings) ? clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ': '';
+    that.echo(savings + to + '.munched');
 }
 
 Muncher.prototype.rewriteCssBlock = function(html) {
@@ -491,7 +415,7 @@ Muncher.prototype.rewriteCssBlock = function(html) {
 
             });
             
-            target.text((that.compress) ? that.compressCss(text): text);
+            target.text((that.compress['css']) ? that.compressCss(text): text);
         }
 
     });
@@ -533,10 +457,11 @@ Muncher.prototype.rewriteCss = function(css, to) {
 
     });
 
-    fs.writeFileSync(to + '.munched', (this.compress) ? this.compressCss(text): text);
+    fs.writeFileSync(to + '.munched', (this.compress['css']) ? this.compressCss(text): text);
 
     var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
-    that.echo(clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ' + to + '.munched');
+    var savings = (that.showSavings) ? clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ': '';
+    that.echo(savings + to + '.munched');
 }
 
 Muncher.prototype.rewriteJsBlock = function(html) {
@@ -585,7 +510,9 @@ Muncher.prototype.rewriteJsBlock = function(html) {
         target.text(js);
     });
 
-    return document.innerHTML;
+    var block = (this.compress['js']) ? this.compressJs(document.innerHTML): document.innerHTML;
+
+    return block;
 }
 
 Muncher.prototype.rewriteJs = function(js, to) {
@@ -626,10 +553,11 @@ Muncher.prototype.rewriteJs = function(js, to) {
         js = js.replace(match[0], passed);
     }
 
-    fs.writeFileSync(to + '.munched', (this.compress) ? this.compressJs(js): js);
+    fs.writeFileSync(to + '.munched', (this.compress['js']) ? this.compressJs(js): js);
 
     var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
-    that.echo(clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ' + to + '.munched');
+    var savings = (that.showSavings) ? clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ': '';
+    that.echo(savings + to + '.munched');
 }
 
 /** 
