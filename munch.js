@@ -1,4 +1,4 @@
-#!/bin/env node
+#!/usr/bin/env node
 /**
  * MUNCH.js
  * http://jmrocela.github.com/munchjs
@@ -22,13 +22,12 @@ var    path = require('path'),
     Hashids = require('hashids'),
     hashids = new Hashids("use the force harry");
 
-var Muncher = function(options) {
-    // custom options
-    this.options = {
-        // defaults to stuff     
-    }
+/** 
+ *
+ */
+var Muncher = function(args) {
 
-    // tokens
+    // tokens from files within views, css and js together
     this.map = {
         "id": {},
         "class": {}
@@ -41,36 +40,71 @@ var Muncher = function(options) {
     this.mapCounter = 0;
 
     // ignore classes
-    this.ignoreClasses = [ "no-js" ];
+    this.ignoreClasses = [ "no-js" ]; // @BUG not respected, related to not properly iterating over arrays
     this.ignoreIds = [ ];
 
-    // html extension
-    this.htmlExtension = '.html';
-
-    this.compress = true;
-
-    this.verbose = true;
-
-    this.parsers = {
-        "js": []
-    }
-}
-
-// constructor
-Muncher.prototype.run = function(args) {
+    // a reference to `this`
     var that = this;
     
-    // set the ignore
-    that.ignore = args['ignore'] || '';
-    that.ignore.split(',').forEach(function(ign) {
+    // set the ignore maps for Ids and Classes
+    this.ignore = args['ignore'] || '';
+    this.ignore.split(',').forEach(function(ign) {
         ign = ign.replace(/\s/,'');
         if (ign.indexOf('.') === 0) that.ignoreClasses.push(ign.replace('.', ''));
         if (ign.indexOf('#') === 0) that.ignoreIds.push(ign.replace('#', ''));
     });
 
-    console.log('Processing:');
-    if (args["html"]) {
-        args["html"].split(',').forEach(function(path) {
+    // set the default view extension
+    this.extensions = {
+        "view": args['view-ext'] || '.html',
+        "css": args['css-ext'] || '.css',
+        "js": args['js-ext'] || '.js'
+    }
+
+    // you may want to use another way for compressing CSS and JS
+    this.compress = {
+        "view": true,
+        "css": false,
+        "js": false
+    }
+
+    // if we want to nag the CLI
+    this.silent = (args['silent'] === true);
+    this.showSavings = (args['show-savings'] === true);
+
+    // paths given from the configuration
+    this.paths = {
+        "view": args['view'],
+        "css": args['css'],
+        "js": args['js']
+    }
+
+    // custom parser collection
+    this.parsers = {
+        "js": []
+    }
+
+    // chainable
+    return this;
+}
+
+/** 
+ * run
+ *
+ * Sets various options to run the Muncher
+ *
+ * @param args Object an optimist.args object.
+ */
+Muncher.prototype.run = function() {
+    // we make a reference to `this`
+    var that = this;
+
+    // we echo out a friendly Console message if we are allowed to
+    if (that.verbose) console.log('')
+
+    // run through the HTML files
+    if (that.paths["html"]) {
+        that.paths["html"].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.htmlExtension);
 
@@ -84,8 +118,8 @@ Muncher.prototype.run = function(args) {
         });
     }
 
-    if (args['css']) {
-        args['css'].split(',').forEach(function(path) {
+    if (that.paths['css']) {
+        that.paths['css'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*.css');
 
@@ -99,8 +133,8 @@ Muncher.prototype.run = function(args) {
         });
     }
 
-    if (args['js']) {
-        args['js'].split(',').forEach(function(path) {
+    if (that.paths['js']) {
+        that.paths['js'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*.js');
 
@@ -116,8 +150,8 @@ Muncher.prototype.run = function(args) {
 
     console.log('Building:');
     // we do it again so that we are sure we have everything we need
-    if (args["html"]) {
-        args["html"].split(',').forEach(function(path) {
+    if (that.paths["html"]) {
+        that.paths["html"].split(',').forEach(function(path) {
             if (fs.lstatSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.htmlExtension);
 
@@ -131,8 +165,8 @@ Muncher.prototype.run = function(args) {
         });
     }
 
-    if (args['css']) {
-        args['css'].split(',').forEach(function(path) {
+    if (that.paths['css']) {
+        that.paths['css'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*.css');
 
@@ -146,8 +180,8 @@ Muncher.prototype.run = function(args) {
         });
     }
 
-    if (args['js']) {
-        args['js'].split(',').forEach(function(path) {
+    if (that.paths['js']) {
+        that.paths['js'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
                 var files = glob.sync(path.replace(/\/$/, '') + '/**/*.js');
 
@@ -161,6 +195,10 @@ Muncher.prototype.run = function(args) {
         });
     }
 
+}
+
+Muncher.prototype.echo = function(message) {
+    if (!this.silent) console.log(message);
 }
 
 // parse the files
@@ -562,77 +600,134 @@ Muncher.prototype.rewriteJs = function(js, to) {
     console.log('Wrore to ' + to  + '.munched. Saved ' + percent.toFixed(2) + '%');
 }
 
-// basic compress methods for each context
+/** 
+ * compressHtml
+ *
+ * Compress HTML Files to save a couple of bytes. Someone tell me where I got this. I need to
+ * credit them. I forgot :(
+ *
+ * @param html String The HTML string to be minified
+ * @param compressHead Boolean Option whether the <head> tag should be compressed as well
+ */
 Muncher.prototype.compressHtml = function(html, compressHead){
-    var allHTML = html;
-    var headHTML = "";
-    var removeThis = "";
-    var headstatus = compressHead || true;
-    if(headstatus != true){
+    var   allHTML = html,
+         headHTML = '',
+       removeThis = '',
+       headstatus = compressHead || true;
+
+    if (headstatus != true) {
         //Compress all the things!
-        allHTML = allHTML.replace(/(\r\n|\n|\r|\t)/gm,"");
-        allHTML = allHTML.replace(/\s+/g," ");
-    }else{
+        allHTML = allHTML.replace(/(\r\n|\n|\r|\t)/gm, '');
+        allHTML = allHTML.replace(/\s+/g, ' ');
+    } else {
         //Don't compress the head
-        allHTML = allHTML.replace(new RegExp("</HEAD","gi"),'</head');
-        allHTML = allHTML.replace(new RegExp("</head ","gi"),'</head');
+        allHTML = allHTML.replace(new RegExp('</HEAD', 'gi'), '</head');
+        allHTML = allHTML.replace(new RegExp('</head ', 'gi'), '</head');
         
-        var bodySplit = "</head>"; 
+        var bodySplit = '</head>'; 
         var i = allHTML.indexOf(bodySplit) != -1;
-        if(i == true){
-            var bodySplit = "</head>"; 
-            var tempo = allHTML.split(new RegExp(bodySplit,'i'));
+        
+        if (i == true) {
+            var bodySplit = '</head>'; 
+            var tempo = allHTML.split(new RegExp(bodySplit, 'i'));
             headHTML = tempo[0];
             allHTML = tempo[1];
-        }else{
-            bodySplit = ""; 
+        } else {
+            bodySplit = ''; 
         }
-        allHTML = allHTML.replace(/(\r\n|\n|\r|\t)/gm,"");
-        allHTML = allHTML.replace(/\s+/g," ");
-        allHTML = headHTML + bodySplit + '\n' + allHTML.replace(/<!--(.*?)-->/gm, "");
+
+        allHTML = allHTML.replace(/(\r\n|\n|\r|\t)/gm, '');
+        allHTML = allHTML.replace(/\s+/g, ' ');
+        allHTML = headHTML + bodySplit + '\n' + allHTML.replace(/<!--(.*?)-->/gm, '');
     }
+
     return allHTML;
 }
 
+/** 
+ * compressCss
+ *
+ * A simple CSS minifier. removes all newlines, tabs and spaces. also strips out comments.
+ *
+ * @param css String The CSS string to be minified
+ */
 Muncher.prototype.compressCss = function(css) {
     css = css.replace(/(\r\n|\n|\r|\t)/gm, "");
     css = css.replace(/\s+/g, " ");
     return css.replace(/\/\*(.*?)\*\//gm, "");
 }
 
+/** 
+ * compressJs
+ *
+ * A placeholder for future use perhaps?
+ *
+ * @param js String The JS string to be minified
+ */
 Muncher.prototype.compressJs = function(js) {
     return js;
 }
 
+/** 
+ * addJsParser
+ *
+ * plug different JS parsers here. Parsers are loaded dynamically from the `parsers` folder
+ *
+ * @param cb Function the callback for parsing JS Strings
+ */
 Muncher.prototype.addJsParser = function(cb) {
     if (typeof cb == 'function') {
         this.parsers.js.push(cb);
     }
 }
 
-// create muncher
-var munch = new Muncher();
+/** 
+ * We expose this to the CLI
+ */
+var munch = function() {
 
-//jquery
-munch.addJsParser(function(js) {
-    // var pass1 = /(\$|jQuery)\([\'"](.*?)[\'"]/gi.exec(js);
+    // fetch the script options from CLI
+    var args = require('optimist')
+                            .usage(fs.readFileSync('./usage').toString())
+                            .demand(['view'])
+                            .argv;
 
-    // class
-    // var pass2 = /addClass\([\'"](.*?)[\'"]/gi.exec(js);
-    // if (pass2) this.addClass(pass2[1].split(' '));
+    // we have a settings file specifically specified or args is empty
+    if (!args || args['manifest']) {
+        args['manifest'] = args['manifest'] || '.muncher';
 
-    // var pass3 = /removeClass\([\'"](.*?)[\'"]/gi.exec(js);
-    // if (pass3) this.addClass(pass3[1].split(' '));
-    
-    // var pass6 = /attr\([\'"](id|class)[\'"], [\'"](.*?)[\'"]/gi.exec(js);
-    // if (pass6 && pass6[1] == 'class') this.addClass(pass6[2].split(' '), 2);
-    // if (pass6 && pass6[1] == 'id') this.addId(pass6[2]);
-});
+        // see if the file exists and get it
+        if (fs.existsSync(args['manifest'])) {
+            args = require(args['manifest']);
+        }
+    }
 
-// run muncher
-munch.run(require('optimist')
-            .usage(fs.readFileSync('./usage'))
-            .demand(['html'])
-            .argv);
+    // check if args is usable.
+    if (!args) {
+        console.log('There are no options specified. Aborting');
+        return;
+    } else if (!args['silent']) {
+        // echo a pretty name if we are allowed to
+        console.log('\n   __  ___              __     _   ');
+        console.log('  /  |/  /_ _____  ____/ /    (_)__');
+        console.log(' / /|_/ / // / _ \\/ __/ _ \\  / (_-<');
+        console.log('/_/  /_/\\_,_/_//_/\\__/_//_/_/ /___/');
+        console.log('                         |___/     \n');
+        console.log('Copyright (c) 2013 John Rocela <me@iamjamoy.com>\n\n');
+    }
+
+    // let's start munching
+    var munch = new Muncher(args);
+
+    // add custom JS parsers
+    glob.sync('./parsers/**/*.js').forEach(function(file) {
+        munch.addJsParser(require(file));
+    });
+
+    // bon appetit`
+    munch.run();
+}
+
+munch();
 
 // have fun <3
