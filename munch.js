@@ -18,6 +18,7 @@ var    path = require('path'),
          fs = require('fs'),
       jsdom = require('jsdom').jsdom,
           $ = require('jquery'),
+        clc = require('cli-color'),
       parse = require('css-parse'),
     Hashids = require('hashids'),
     hashids = new Hashids("use the force harry");
@@ -99,14 +100,14 @@ Muncher.prototype.run = function() {
     // we make a reference to `this`
     var that = this;
 
-    // we echo out a friendly Console message if we are allowed to
-    if (that.verbose) console.log('')
-
     // run through the HTML files
-    if (that.paths["html"]) {
-        that.paths["html"].split(',').forEach(function(path) {
+    if (that.paths["view"]) {
+        
+        that.echo(clc.bold('Processing Views'));
+
+        that.paths["view"].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.htmlExtension);
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['view']);
 
                 files.forEach(function(file) {
                     that.parse(file, 'html');
@@ -116,12 +117,17 @@ Muncher.prototype.run = function() {
                 that.parse(path, 'html');
             }
         });
+        
+        that.echo(clc.green.bold('Finished!\n'));
     }
 
     if (that.paths['css']) {
+        
+        that.echo(clc.bold('Processing CSS'));
+
         that.paths['css'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.css');
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['css']);
 
                 files.forEach(function(file) {
                     that.parse(file, 'css');
@@ -131,12 +137,17 @@ Muncher.prototype.run = function() {
                 that.parse(path, 'css');
             }
         });
+        
+        that.echo(clc.green.bold('Finished!\n'));
     }
 
     if (that.paths['js']) {
+        
+        that.echo(clc.bold('Processing JS'));
+
         that.paths['js'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.js');
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['js']);
 
                 files.forEach(function(file) {
                     that.parse(file, 'js');
@@ -146,14 +157,20 @@ Muncher.prototype.run = function() {
                 that.parse(path, 'js');
             }
         });
+        
+        that.echo(clc.green.bold('Finished!\n'));
     }
+        
+    that.echo(clc.bold('-------------------------------\nMapped ' + that.mapCounter + ' IDs and Classes.\n-------------------------------\n'));
 
-    console.log('Building:');
     // we do it again so that we are sure we have everything we need
-    if (that.paths["html"]) {
-        that.paths["html"].split(',').forEach(function(path) {
+    if (that.paths["view"]) {
+
+        that.echo(clc.bold('Rewriting Views'));
+
+        that.paths["view"].split(',').forEach(function(path) {
             if (fs.lstatSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.htmlExtension);
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['view']);
 
                 files.forEach(function(file) {
                     that.build(file, 'html');
@@ -163,12 +180,18 @@ Muncher.prototype.run = function() {
                 that.build(path, 'html');
             }
         });
+        
+        that.echo(clc.green.bold('Finished!\n'));
+
     }
 
     if (that.paths['css']) {
+
+        that.echo(clc.bold('Rewriting CSS'));
+
         that.paths['css'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.css');
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['css']);
 
                 files.forEach(function(file) {
                     that.build(file, 'css');
@@ -178,12 +201,18 @@ Muncher.prototype.run = function() {
                 that.build(path, 'css');
             }
         });
+        
+        that.echo(clc.green.bold('Finished!\n'));
+
     }
 
     if (that.paths['js']) {
+
+        that.echo(clc.bold('Rewriting JS'));
+
         that.paths['js'].split(',').forEach(function(path) {
             if (fs.statSync(path).isDirectory()) {
-                var files = glob.sync(path.replace(/\/$/, '') + '/**/*.js');
+                var files = glob.sync(path.replace(/\/$/, '') + '/**/*' + that.extensions['js']);
 
                 files.forEach(function(file) {
                     that.build(file, 'js');
@@ -193,6 +222,9 @@ Muncher.prototype.run = function() {
                 that.build(path, 'js');
             }
         });
+        
+        that.echo(clc.green.bold('Finished!\n'));
+
     }
 
 }
@@ -205,7 +237,7 @@ Muncher.prototype.echo = function(message) {
 Muncher.prototype.parse = function(file, context) {
 
     if (fs.existsSync(file)) {
-        console.log('Getting IDs and Classes from ' + file);
+        this.echo(file);
 
         var content = fs.readFileSync(file, 'utf8').toString();
 
@@ -224,7 +256,7 @@ Muncher.prototype.parse = function(file, context) {
         }
 
     } else {
-        console.log('Skipping ' + file + ' because it doesn\'t exist.');
+        this.echo(clc.red(file + ' doesn\'t exist'));
     }
 
 }
@@ -415,7 +447,7 @@ Muncher.prototype.rewriteHtml = function(html, to) {
     fs.writeFileSync(to + '.munched', (this.compress) ? this.compressHtml(html): html);
 
     var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
-    console.log('Wrore to ' + to  + '.munched. Saved ' + percent.toFixed(2) + '%');
+    that.echo(clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ' + to + '.munched');
 
 }
 
@@ -504,7 +536,7 @@ Muncher.prototype.rewriteCss = function(css, to) {
     fs.writeFileSync(to + '.munched', (this.compress) ? this.compressCss(text): text);
 
     var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
-    console.log('Wrore to ' + to  + '.munched. Saved ' + percent.toFixed(2) + '%');
+    that.echo(clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ' + to + '.munched');
 }
 
 Muncher.prototype.rewriteJsBlock = function(html) {
@@ -597,7 +629,7 @@ Muncher.prototype.rewriteJs = function(js, to) {
     fs.writeFileSync(to + '.munched', (this.compress) ? this.compressJs(js): js);
 
     var percent = 100 - ((fs.statSync(to + '.munched').size / this.files[to]) * 100);
-    console.log('Wrore to ' + to  + '.munched. Saved ' + percent.toFixed(2) + '%');
+    that.echo(clc.blue.bold(percent.toFixed(2) + '%') + ' Saved for ' + to + '.munched');
 }
 
 /** 
@@ -688,9 +720,9 @@ var munch = function() {
 
     // fetch the script options from CLI
     var args = require('optimist')
-                            .usage(fs.readFileSync('./usage').toString())
-                            .demand(['view'])
-                            .argv;
+                    .usage(fs.readFileSync('./usage').toString())
+                    .demand(['view'])
+                    .argv;
 
     // we have a settings file specifically specified or args is empty
     if (!args || args['manifest']) {
@@ -708,12 +740,16 @@ var munch = function() {
         return;
     } else if (!args['silent']) {
         // echo a pretty name if we are allowed to
-        console.log('\n   __  ___              __     _   ');
-        console.log('  /  |/  /_ _____  ____/ /    (_)__');
-        console.log(' / /|_/ / // / _ \\/ __/ _ \\  / (_-<');
-        console.log('/_/  /_/\\_,_/_//_/\\__/_//_/_/ /___/');
-        console.log('                         |___/     \n');
-        console.log('Copyright (c) 2013 John Rocela <me@iamjamoy.com>\n\n');
+        console.log(clc.red('\n   __  ___              __     _   '));
+        console.log(clc.red('  /  |/  /_ _____  ____/ /    (_)__'));
+        console.log(clc.red(' / /|_/ / // / _ \\/ __/ _ \\  / (_-<'));
+        console.log(clc.red('/_/  /_/\\_,_/_//_/\\__/_//_/_/ /___/'));
+        console.log(clc.red('                         |___/     \n'));
+        console.log(clc.white('Copyright (c) 2013 John Rocela <me@iamjamoy.com>\n\n'));
+    }
+
+    if (args['manifest']) {
+        console.log('Reading Manifest file to get configuration...\n');
     }
 
     // let's start munching
