@@ -20,9 +20,10 @@
       "url": "http://github.com/jmrocela/munchjs/blob/master/LICENSE-MIT"
     }
   ],
+  "bin": "./munch.js",
   "main": "munch",
   "engines": {
-    "node": ">= 0.10.0"
+    "node": ">= 0.8.0"
   },
   "scripts": {
     "test": "vows --spec"
@@ -44,7 +45,7 @@
     "jquery": "~1.8.3",
     "jsdom": "~0.6.5"
   },
-  "devDependencies": {,
+  "devDependencies": {
     "vows": "~0.7.0"
   },
   "contributors": [

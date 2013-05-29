@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * MUNCH.js
  * http://jmrocela.github.com/munchjs
@@ -69,6 +70,9 @@ var Muncher = function(args) {
     this.silent = (args['silent'] === true);
     this.showSavings = (args['show-savings'] === true);
 
+    // flag if we only want to map the Ids and Classes for later use
+    this.mapFile = args['map'];
+
     // paths given from the configuration
     this.paths = {
         "view": args['view'],
@@ -93,20 +97,25 @@ var Muncher = function(args) {
  * @param args Object an optimist.args object.
  */
 Muncher.prototype.run = function() {
-    // we make a reference to `this`
-    var that = this;
 
     // run through the HTML files
-    if (that.paths["view"]) that.parseDir(that.paths["view"], "view");
-    if (that.paths['css']) that.parseDir(that.paths["css"], "css");
-    if (that.paths['js']) that.parseDir(that.paths["js"], "js");
-        
-    that.echo(clc.bold('-------------------------------\nMapped ' + that.mapCounter + ' IDs and Classes.\n-------------------------------\n'));
+    if (this.paths["view"]) this.parseDir(this.paths["view"], "view");
+    if (this.paths['css']) this.parseDir(this.paths["css"], "css");
+    if (this.paths['js']) this.parseDir(this.paths["js"], "js");
 
-    // we do it again so that we are sure we have everything we need
-    if (that.paths["view"]) that.buildDir(that.paths["view"], "view");
-    if (that.paths['css']) that.buildDir(that.paths["css"], "css");
-    if (that.paths['js']) that.buildDir(that.paths["js"], "js");
+    // map feature
+    if (typeof this.mapFile === 'string') {
+        fs.writeFileSync(this.mapFile, JSON.stringify(this.map, null, '\t'));
+        this.echo(clc.bold('-------------------------------\nWrote ' + this.mapCounter + ' ids and classes in ' + this.mapFile + '.\n-------------------------------\n'));
+        return;
+    } else {
+        this.echo(clc.bold('-------------------------------\nMapped ' + this.mapCounter + ' IDs and Classes.\n-------------------------------\n'));
+    }
+
+    // we do it again so this we are sure we have everything we need
+    if (this.paths["view"]) this.buildDir(this.paths["view"], "view");
+    if (this.paths['css']) this.buildDir(this.paths["css"], "css");
+    if (this.paths['js']) this.buildDir(this.paths["js"], "js");
 
 }
 
@@ -248,12 +257,21 @@ Muncher.prototype.parseHtml = function(html) {
 }
 
 Muncher.prototype.parseCss = function(css) { 
-    var that = this,
-         css = parse(css);
+    var   that = this,
+           css = parse(css),
+        styles = [];
 
-    css.stylesheet.rules.forEach(function(style) {
-        if (!style.selectors) return; 
+    $.each(css.stylesheet.rules, function(i, style) {
+        if (style.media) {
+            styles.concat(style.rules);
+        }
 
+        if (!style.selectors) return true;
+
+        styles.push(css.stylesheet.rules[i]);
+    });
+
+    $.each(styles, function(o, style) {
         style.selectors.forEach(function(selector) {
             var tid = selector.match(/#[\w\-]+/gi),
                 tcl = selector.match(/\.[\w\-]+/gi);
@@ -271,7 +289,6 @@ Muncher.prototype.parseCss = function(css) {
                 });
             }
         });
-
     });
 }
 
@@ -279,7 +296,7 @@ Muncher.prototype.addClass = function(cl) {
     var that = this;
 
     var addClass = function(cls) {
-        if (!that.ignoreClasses.indexOf(cls)) return; // shoul be a list of no-nos
+        if (that.ignoreClasses.indexOf(cls) > -1) return true; // shoul be a list of no-nos
         if (!that.map["class"][cls]) {
             that.map["class"][cls] = hashids.encrypt(that.mapCounter); 
             that.mapCounter++;
@@ -299,7 +316,7 @@ Muncher.prototype.addClass = function(cl) {
 
 Muncher.prototype.addId = function(id) {
     if (!this.map["id"][id]) {
-        if (!this.ignoreIds.indexOf(id)) return; // shoul be a list of no-nos
+        if (!this.ignoreIds.indexOf(id)) return true; // shoul be a list of no-nos
         this.map["id"][id] = hashids.encrypt(this.mapCounter);
         this.mapCounter++;
     }
@@ -347,14 +364,14 @@ Muncher.prototype.rewriteHtml = function(html, to) {
            classes = target.attr('class');
 
         if (id) {
-            if (!that.ignoreIds.indexOf(id)) return;
+            if (!that.ignoreIds.indexOf(id)) return true;
             target.attr('id', that.map["id"][id]);
         }
 
         if (classes) {
             var newClass = [];
             classes.split(' ').forEach(function(cl) {
-                if (!that.ignoreClasses.indexOf(cl)) return;
+                if (!that.ignoreClasses.indexOf(cl)) return true;
                 if (that.map["class"][cl]) {
                     target.removeClass(cl).addClass(that.map["class"][cl]);
                 }
@@ -366,7 +383,7 @@ Muncher.prototype.rewriteHtml = function(html, to) {
     // write
     html = document.innerHTML;
     html = this.rewriteJsBlock(html);
-    html = this.rewriteCssBlock(html);
+    html = this.rewriteCssBlock(html, this.compress['view']);
 
     fs.writeFileSync(to + '.munched', (this.compress['view']) ? this.compressHtml(html): html);
 
@@ -375,7 +392,52 @@ Muncher.prototype.rewriteHtml = function(html, to) {
     that.echo(savings + to + '.munched');
 }
 
-Muncher.prototype.rewriteCssBlock = function(html) {
+Muncher.prototype.rewriteCssString = function(css) {
+    var   that = this,
+          text = css,
+        styles = [],
+           css = parse(text);
+
+    $.each(css.stylesheet.rules, function(i, style) {
+        if (style.media) {
+            styles.concat(style.rules);
+        }
+
+        if (!style.selectors) return true;
+
+        styles.push(css.stylesheet.rules[i]);
+    });
+
+    $.each(styles, function(u, style) {
+        style.selectors.forEach(function(selector) {
+            var original = selector,
+                     tid = selector.match(/#[\w\-]+/gi),
+                     tcl = selector.match(/\.[\w\-]+/gi);
+
+            if (tid) {
+                $.each(tid, function(i, match) {
+                    match = match.replace('#', '');
+                    if (that.ignoreIds.indexOf(match) > -1) return true;
+                    selector = selector.replace(new RegExp("#" + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match]);
+                });
+            }
+            if (tcl) {
+                $.each(tcl, function(o, match) {
+                    match = match.replace('.', '');
+                    if (that.ignoreClasses.indexOf(match) > -1) return true;
+                    if (match == 'container') console.log(1);
+                    selector = selector.replace(new RegExp("\\." + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match]);
+                });
+            }
+
+            text = text.replace(original, selector);
+        });
+    });
+
+    return text;
+}
+
+Muncher.prototype.rewriteCssBlock = function(html, compress) {
     var     that = this,
         document = jsdom(html),
             html = $(document);
@@ -384,38 +446,8 @@ Muncher.prototype.rewriteCssBlock = function(html) {
         var target = html.find(elem);
 
         if (target.is('style')) {
-            var text = target.text(),
-                 css = parse(text);
-
-            css.stylesheet.rules.forEach(function(style) {
-                var selector = style.selector;
-
-                style.selectors.forEach(function(selector) {
-                    var original = selector,
-                             tid = selector.match(/#[\w\-]+/gi),
-                             tcl = selector.match(/\.[\w\-]+/gi);
-
-                    if (tid) {
-                        tid.forEach(function(match) {
-                            match = match.replace('#', '');
-                            if (!that.ignoreIds.indexOf(match)) return;
-                            selector = selector.replace(new RegExp("#" + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match]);
-                        });
-                    }
-                    if (tcl) {
-                        tcl.forEach(function(match) {
-                            match = match.replace('.', '');
-                            if (!that.ignoreClasses.indexOf(match)) return;
-                            selector = selector.replace(new RegExp("\\." + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match]);
-                        });
-                    }
-
-                    text = text.replace(original, selector);
-                });
-
-            });
-            
-            target.text((that.compress['css']) ? that.compressCss(text): text);
+            var text = that.rewriteCssString(target.text());
+            target.text(compress ? that.compressCss(text): text);
         }
 
     });
@@ -425,37 +457,7 @@ Muncher.prototype.rewriteCssBlock = function(html) {
 
 Muncher.prototype.rewriteCss = function(css, to) {
     var that = this,
-        text = css,
-         css = parse(css)
-
-    css.stylesheet.rules.forEach(function(style) {
-        if (!style.selectors) return; 
-
-        style.selectors.forEach(function(selector) {
-            var original = selector,
-                     tid = selector.match(/#[\w\-]+/gi),
-                     tcl = selector.match(/\.[\w\-]+/gi);
-
-            if (tid) {
-                tid.forEach(function(match) {
-                    match = match.replace('#', '');
-                    if (!that.ignoreIds.indexOf(match)) return;
-                    selector = selector.replace(new RegExp("#" + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '#' + that.map["id"][match]);
-                });
-            }
-            if (tcl) {
-                tcl.forEach(function(match) {
-                    match = match.replace('.', '');
-                    if (!that.ignoreClasses.indexOf(match)) return;
-                    selector = selector.replace(new RegExp("\\." + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match]);
-                });
-            }
-
-            text = text.replace(original, selector);
-
-        });
-
-    });
+        text = that.rewriteCssString(css);
 
     fs.writeFileSync(to + '.munched', (this.compress['css']) ? this.compressCss(text): text);
 
@@ -495,9 +497,10 @@ Muncher.prototype.rewriteJsBlock = function(html) {
         while ((match = pass7.exec(js)) !== null) {
             var key = (match[1] == 'id') ? 'id': 'class';
             if (key == 'class') {
-                var passed = match[0];
-                match[2].split(' ').forEach(function(cls) {
-                    if (!that.ignoreClasses.indexOf(cls)) return;
+                var passed = match[0],
+                    splitd = match[2].split(' ');
+                $.each(splitd, function(i, cls) {
+                    if (!that.ignoreClasses.indexOf(cls)) return true;
                     passed = passed.replace(new RegExp(cls, "gi"), that.map[key][cls]);
                 });
             } else {
