@@ -1,5 +1,7 @@
 # Munch.js
 
+[![Build Status](https://travis-ci.org/jmrocela/munchjs.png?branch=master)](https://travis-ci.org/jmrocela/munchjs)
+
 Munch.js is a utility that rewrites classes and ids in CSS, HTML, and JavaScript files in order to save precious bytes and obfuscate your code. based on [Craig Campbell](http://www.craigiam.com/)'s [HTML-Muncher](http://htmlmuncher.com).
 
 Install by using `npm install munch`
