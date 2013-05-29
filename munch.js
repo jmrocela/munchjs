@@ -85,6 +85,10 @@ var Muncher = function(args) {
         "js": []
     }
 
+    this.writers = {
+        "js": []
+    }
+
     // chainable
     return this;
 }
@@ -323,6 +327,7 @@ Muncher.prototype.addId = function(id) {
 }
 
 Muncher.prototype.parseJs = function(js) {
+    var match;
 
     // custom parsers
     if (this.parsers.js.length > 0) {
@@ -330,7 +335,6 @@ Muncher.prototype.parseJs = function(js) {
             cb.call(this, js);
         });
     }
-    var match;
 
     // id and class
     var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi;
@@ -466,7 +470,55 @@ Muncher.prototype.rewriteCss = function(css, to) {
     that.echo(savings + to + '.munched');
 }
 
-Muncher.prototype.rewriteJsBlock = function(html) {
+
+Muncher.prototype.rewriteJsString = function(js) {
+    var  that = this,
+        match = null;
+
+    // id and class
+    var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi;
+    while ((match = pass4.exec(js)) !== null) {
+        if (that.ignoreClasses.indexOf(match[1]) > -1) continue;
+        var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["class"][match[1]]);
+        js = js.replace(match[0], passed);
+    }
+
+    var pass5 = /getElementById\([\'"](.*?)[\'"]/gi;
+    while ((match = pass5.exec(js)) !== null) {
+        if (that.ignoreIds.indexOf(match[1]) > -1) continue;
+        var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["id"][match[1]]);
+        js = js.replace(match[0], passed);
+    }
+
+    // attr
+    var pass7 = /setAttribute\([\'"](id|class)[\'"],\s[\'"](.+?)[\'"]/gi;
+    while ((match = pass7.exec(js)) !== null) {
+        var key = (match[1] == 'id') ? 'id': 'class';
+        if (key == 'class') {
+            var passed = match[0],
+                splitd = match[2].split(' ');
+            $.each(splitd, function(i, cls) {
+                if (that.ignoreClasses.indexOf(cls) > -1) return true;
+                passed = passed.replace(new RegExp(cls, "gi"), that.map[key][cls]);
+            });
+        } else {
+            if (that.ignoreIds.indexOf(match[2]) > -1) continue;
+            var passed = match[0].replace(new RegExp(match[2], "gi"), that.map[key][match[2]]);
+        }
+        js = js.replace(match[0], passed);
+    }
+
+    // custom parsers
+    if (this.writers.js.length > 0) {
+        this.writers.js.forEach(function(cb) {
+            cb.call(this, js);
+        });
+    }
+
+    return js;
+}
+
+Muncher.prototype.rewriteJsBlock = function(html, compress) {
     var     that = this,
         document = jsdom(html),
             html = $(document);
@@ -475,86 +527,20 @@ Muncher.prototype.rewriteJsBlock = function(html) {
 
     html.find('script').each(function(i, elem) {
         var target = html.find(elem),
-        js = target.text();
-
-        // id and class
-        var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi;
-        while ((match = pass4.exec(js)) !== null) {
-            if (!that.ignoreClasses.indexOf(match[1])) continue;
-            var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["class"][match[1]]);
-            js = js.replace(match[0], passed);
-        }
-
-        var pass5 = /getElementById\([\'"](.*?)[\'"]/gi;
-        while ((match = pass5.exec(js)) !== null) {
-            if (!that.ignoreIds.indexOf(match[1])) continue;
-            var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["id"][match[1]]);
-            js = js.replace(match[0], passed);
-        }
-
-        // attr
-        var pass7 = /setAttribute\([\'"](id|class)[\'"],\s[\'"](.+?)[\'"]/gi;
-        while ((match = pass7.exec(js)) !== null) {
-            var key = (match[1] == 'id') ? 'id': 'class';
-            if (key == 'class') {
-                var passed = match[0],
-                    splitd = match[2].split(' ');
-                $.each(splitd, function(i, cls) {
-                    if (!that.ignoreClasses.indexOf(cls)) return true;
-                    passed = passed.replace(new RegExp(cls, "gi"), that.map[key][cls]);
-                });
-            } else {
-                if (!that.ignoreIds.indexOf(match[2])) continue;
-                var passed = match[0].replace(new RegExp(match[2], "gi"), that.map[key][match[2]]);
-            }
-            js = js.replace(match[0], passed);
-        }
+                js = that.rewriteJsString(target.text());
 
         target.text(js);
     });
 
-    var block = (this.compress['js']) ? this.compressJs(document.innerHTML): document.innerHTML;
+    var block = (compress) ? this.compressJs(document.innerHTML): document.innerHTML;
 
     return block;
 }
 
 Muncher.prototype.rewriteJs = function(js, to) {
-    var  that = this,
-        match = null;
+    var  that = this;
 
-    // id and class
-    var pass4 = /getElementsByClassName\([\'"](.*?)[\'"]/gi;
-    while ((match = pass4.exec(js)) !== null) {
-        if (!that.ignoreClasses.indexOf(match[1])) continue;
-        var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["class"][match[1]]);
-        js = js.replace(match[0], passed);
-    }
-
-    var pass5 = /getElementById\([\'"](.*?)[\'"]/gi;
-    while ((match = pass5.exec(js)) !== null) {
-        if (!that.ignoreIds.indexOf(match[1])) continue;
-        var passed = match[0].replace(new RegExp(match[1], "gi"), that.map["id"][match[1]]);
-        js = js.replace(match[0], passed);
-    }
-
-    // attr
-    var pass7 = /setAttribute\([\'"](id|class)[\'"],\s[\'"](.+?)[\'"]/gi;
-    while ((match = pass7.exec(js)) !== null) {
-        var    key = (match[1] == 'id') ? 'id': 'class',
-            passed = '';
-
-        if (key == 'class') {
-            var passed = match[0];
-            match[2].split(' ').forEach(function(cls) {
-                if (!that.ignoreClasses.indexOf(cls)) return;
-                passed = passed.replace(new RegExp(cls, "gi"), that.map[key][cls]);
-            });
-        } else {
-            if (!that.ignoreIds.indexOf(match[2])) return;
-            var passed = match[0].replace(new RegExp(match[2], "gi"), that.map[key][match[2]]);
-        }
-        js = js.replace(match[0], passed);
-    }
+    js = that.rewriteJsString(js);
 
     fs.writeFileSync(to + '.munched', (this.compress['js']) ? this.compressJs(js): js);
 
@@ -644,6 +630,12 @@ Muncher.prototype.addJsParser = function(cb) {
     }
 }
 
+Muncher.prototype.addJsWriter = function(cb) {
+    if (typeof cb == 'function') {
+        this.writers.js.push(cb);
+    }
+}
+
 /** 
  * We expose this to the CLI
  */
@@ -688,7 +680,9 @@ var munch = function() {
 
     // add custom JS parsers
     glob.sync('./parsers/**/*.js').forEach(function(file) {
-        munch.addJsParser(require(file));
+        var lib = require(file);
+        if (lib.parser) munch.addJsParser(lib.parser);
+        if (lib.writer) munch.addJsWriter(lib.writer);
     });
 
     // bon appetit`

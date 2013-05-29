@@ -1,7 +1,7 @@
 {
   "name": "munch",
   "description": "Munch.js is a utility that rewrites classes and ids in CSS, HTML, and JavaScript files in order to save precious bytes and obfuscate your code.",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "author": {
     "name": "John Rocela",
     "url": "http://iamjmrocela.com/"
