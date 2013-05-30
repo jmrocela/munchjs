@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * MUNCH.js
  * http://jmrocela.github.com/munchjs
@@ -683,10 +682,24 @@ Muncher.prototype.addJsWriter = function(cb) {
 }
 
 /** 
- * We expose this to the CLI
+ * module_exists
+ *
+ * Check if a module exists
+ *
+ * @param module_exists String the module name
  */
-var munch = function() {
+function module_exists(name) {
+    try { 
+        return require.resolve(name);
+    } catch(e) {
+        return false
+    }
+}
 
+/** 
+ * let's not forget to expose this
+ */
+exports.run = function() {
     // fetch the script options from CLI
     var args = require('optimist')
                     .usage(fs.readFileSync('./usage').toString())
@@ -738,16 +751,6 @@ var munch = function() {
 
     // bon appetit`
     munch.run();
-}
-
-munch();
-
-function module_exists(name) {
-    try { 
-        return require.resolve(name);
-    } catch(e) {
-        return false
-    }
 }
 
 // have fun <3
