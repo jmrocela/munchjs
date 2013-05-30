@@ -320,7 +320,7 @@ Muncher.prototype.parseCss = function(css) {
 
     $.each(css.stylesheet.rules, function(i, style) {
         if (style.media) {
-            styles.concat(style.rules);
+            styles = styles.concat(style.rules);
         }
 
         if (!style.selectors) return true;
@@ -446,7 +446,7 @@ Muncher.prototype.rewriteCssString = function(css) {
 
     $.each(css.stylesheet.rules, function(i, style) {
         if (style.media) {
-            styles.concat(style.rules);
+            styles = styles.concat(style.rules);
         }
 
         if (!style.selectors) return true;
