@@ -23,6 +23,9 @@ OPTIONAL ARGUMENTS:
 
 --js {path/to/js}            js files to rewrite (comma separated list of directories and files)
 
+--manifest                   a file where all options available for muncher are stored. this can be any
+                             json files or a .muncher file by default. useful for deployment purposes.
+
 --view-ext {extension}       sets the extension to look for in the view directory (defaults to html)
 
 --css-ext                    sets the extension to look for in the css directory (defaults to css)

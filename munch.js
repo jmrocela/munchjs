@@ -703,16 +703,22 @@ exports.run = function() {
     // fetch the script options from CLI
     var args = require('optimist')
                     .usage(fs.readFileSync('./usage').toString())
-                    .demand(['view'])
                     .argv;
 
     // we have a settings file specifically specified or args is empty
-    if (!args || args['manifest']) {
-        args['manifest'] = args['manifest'] || '.muncher';
+    if (args['manifest']) {
+        args['manifest'] = (typeof args['manifest'] == 'string') ? args['manifest']: '.muncher';
 
         // see if the file exists and get it
         if (fs.existsSync(args['manifest'])) {
-            args = require(args['manifest']);
+            args = JSON.parse(fs.readFileSync(args['manifest']));
+
+            // normalize everything
+            if (typeof args.view == 'object') args.view = args.view.join(',');
+            if (typeof args.css == 'object') args.css = args.css.join(',');
+            if (typeof args.js == 'object') args.js = args.js.join(',');
+            if (typeof args.ignore == 'object') args.ignore = args.ignore.join(',');
+            if (typeof args.parsers == 'object') args.parsers = args.parsers.join(',');
         }
     }
 
