@@ -2,3 +2,4 @@ node_modules
 test-assets
 npm-debug.log
 map.json
+parsers
