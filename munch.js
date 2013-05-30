@@ -294,6 +294,26 @@ Muncher.prototype.parseHtml = function(html) {
 
 }
 
+Muncher.prototype.parseCssSelector = function(selector) {
+    var that = this,
+        match = null,
+        tid = selector.match(/#[\w\-]+/gi),
+        tcl = selector.match(/\.[\w\-]+/gi);
+
+    if (tid) {
+        tid.forEach(function(match) {
+            var id = match.replace('#', '');
+            that.addId(id);
+        });
+    }
+    if (tcl) {
+        tcl.forEach(function(match) {
+            var cl = match.replace('.', '');
+            that.addClass(cl);
+        });
+    }
+}
+
 Muncher.prototype.parseCss = function(css) { 
     var   that = this,
            css = parse(css),
@@ -311,21 +331,7 @@ Muncher.prototype.parseCss = function(css) {
 
     $.each(styles, function(o, style) {
         style.selectors.forEach(function(selector) {
-            var tid = selector.match(/#[\w\-]+/gi),
-                tcl = selector.match(/\.[\w\-]+/gi);
-
-            if (tid) {
-                tid.forEach(function(match) {
-                    var id = match.replace('#', '');
-                    that.addId(id);
-                });
-            }
-            if (tcl) {
-                tcl.forEach(function(match) {
-                    var cl = match.replace('.', '');
-                    that.addClass(cl);
-                });
-            }
+            that.parseCssSelector(selector);
         });
     });
 }
@@ -361,12 +367,13 @@ Muncher.prototype.addId = function(id) {
 }
 
 Muncher.prototype.parseJs = function(js) {
-    var match;
+    var that = this,
+        match;
 
     // custom parsers
     if (this.parsers.js.length > 0) {
         this.parsers.js.forEach(function(cb) {
-            cb.call(this, js);
+            cb.call(that, js);
         });
     }
 
@@ -548,7 +555,7 @@ Muncher.prototype.rewriteJsString = function(js) {
     // custom parsers
     if (this.writers.js.length > 0) {
         this.writers.js.forEach(function(cb) {
-            cb.call(this, js);
+            js = cb.call(that, js);
         });
     }
 
@@ -718,16 +725,29 @@ var munch = function() {
     var munch = new Muncher(args);
 
     // add custom JS parsers
-    glob.sync('./parsers/**/*.js').forEach(function(file) {
-        var lib = require(file);
-        if (lib.parser) munch.addJsParser(lib.parser);
-        if (lib.writer) munch.addJsWriter(lib.writer);
-    });
+    if (args['parsers']) {
+        var parsers = args['parsers'].split(',');
+        parsers.forEach(function(parser) {
+            if (module_exists(parser)) {
+                var lib = require(parser);
+                if (lib.parser) munch.addJsParser(lib.parser);
+                if (lib.writer) munch.addJsWriter(lib.writer);
+            }
+        });
+    }
 
     // bon appetit`
     munch.run();
 }
 
 munch();
+
+function module_exists(name) {
+    try { 
+        return require.resolve(name);
+    } catch(e) {
+        return false
+    }
+}
 
 // have fun <3

@@ -29,20 +29,6 @@ munch --css file1.css,/path/to/css1,file2.css,file3.css --html /path/to/views1,f
 
 **--compress-html** - strips new line characters to compress html files specified with --html be careful when using this becuase it has not been thoroughly tested
 
-**--framework** - name of js framework to use for selectors (currently only jquery or mootools)
-
-**--selectors** - comma separated custom selectors using css selectors" for example if you have $.qs("#test .div") this param would be qs
-
-**--id-selectors** - comma separated id selectors with strings" for example if you are using .addId("test") this param would be addId
-
-**--class-selectors** - comma separated class selectors with strings" for example if you have selectClass("my_class") this param would be selectClass
-
-**--js-manifest** - path to a js file containing class name/id constants
-
-**--rewrite-constants** - when using a manifest file this will take any constants with values as strings and rewrite the values to be numbers
-
 **--show-savings** - will output how many bytes were saved by munching
 
 **--verbose** - output more information while the script runs
-
-**--help** - shows this menu
