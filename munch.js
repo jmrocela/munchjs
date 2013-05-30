@@ -73,6 +73,8 @@ var Muncher = function(args) {
     // flag if we only want to map the Ids and Classes for later use
     this.mapFile = args['map'];
 
+    this.readFile = args['read'];
+
     // paths given from the configuration
     this.paths = {
         "view": args['view'],
@@ -102,24 +104,60 @@ var Muncher = function(args) {
  */
 Muncher.prototype.run = function() {
 
-    // run through the HTML files
-    if (this.paths["view"]) this.parseDir(this.paths["view"], "view");
-    if (this.paths['css']) this.parseDir(this.paths["css"], "css");
-    if (this.paths['js']) this.parseDir(this.paths["js"], "js");
+    if (!this.readFile) {
+        // run through the HTML files
+        if (this.paths["view"]) this.parseDir(this.paths["view"], "view");
+        if (this.paths['css']) this.parseDir(this.paths["css"], "css");
+        if (this.paths['js']) this.parseDir(this.paths["js"], "js");
+    } else {
+        this.read(this.readFile);
+    }
 
     // map feature
-    if (typeof this.mapFile === 'string') {
-        fs.writeFileSync(this.mapFile, JSON.stringify(this.map, null, '\t'));
-        this.echo(clc.bold('-------------------------------\nWrote ' + this.mapCounter + ' ids and classes in ' + this.mapFile + '.\n-------------------------------\n'));
+    if (typeof this.mapFile === 'string' && !this.readFile) {
+
+        if (this.mapFile) {
+            var map = { id: [], class: [] };
+
+            for (var key in this.map["id"]) {
+                map["id"].push(key);
+            }
+
+            for (var key in this.map["class"]) {
+                map["class"].push(key);
+            }
+
+            fs.writeFileSync(this.mapFile, JSON.stringify(map, null, '\t'));
+        }
+
+        this.echo('-------------------------------');
+        this.echo(clc.bold('Wrote ' + this.mapCounter + ' ids and classes in ' + this.mapFile));
+        this.echo('-------------------------------\n');
         return;
     } else {
-        this.echo(clc.bold('-------------------------------\nMapped ' + this.mapCounter + ' IDs and Classes.\n-------------------------------\n'));
+        this.echo('-------------------------------');
+        this.echo(clc.bold('Mapped ' + this.mapCounter + ' IDs and Classes'));
+        this.echo('-------------------------------\n');
     }
 
     // we do it again so this we are sure we have everything we need
     if (this.paths["view"]) this.buildDir(this.paths["view"], "view");
     if (this.paths['css']) this.buildDir(this.paths["css"], "css");
     if (this.paths['js']) this.buildDir(this.paths["js"], "js");
+
+}
+
+Muncher.prototype.read = function(read) {
+    var manifest = JSON.parse(fs.readFileSync(read, 'utf-8').toString()),
+    that = this;
+
+    $.each(manifest["id"], function(i, id) {
+        that.addId(id);
+    });
+
+    $.each(manifest["class"], function(i, cls) {
+        that.addClass(cls);
+    });
 
 }
 
@@ -178,8 +216,6 @@ Muncher.prototype.parse = function(file, context) {
 
         var content = fs.readFileSync(file, 'utf8').toString();
 
-        this.files[file] = fs.statSync(file).size;
-
         switch (context) {
             case "view":
                 this.parseHtml(content);
@@ -214,8 +250,6 @@ Muncher.prototype.build = function(file, context) {
             this.rewriteJs(content, file);
         break;
     }
-
-    fs.writeFileSync('map.json', JSON.stringify(this.map, null, '\t'));
 
 }
 
@@ -362,6 +396,8 @@ Muncher.prototype.rewriteHtml = function(html, to) {
         document = jsdom(html),
             html = $(document);
 
+    that.files[to] = fs.statSync(to).size;
+
     html.find('*').each(function(i, elem) {
         var target = html.find(elem),
                 id = target.attr('id'),
@@ -429,7 +465,6 @@ Muncher.prototype.rewriteCssString = function(css) {
                 $.each(tcl, function(o, match) {
                     match = match.replace('.', '');
                     if (that.ignoreClasses.indexOf(match) > -1) return true;
-                    if (match == 'container') console.log(1);
                     selector = selector.replace(new RegExp("\\." + match.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "gi"), '.' + that.map["class"][match]);
                 });
             }
@@ -462,6 +497,8 @@ Muncher.prototype.rewriteCssBlock = function(html, compress) {
 Muncher.prototype.rewriteCss = function(css, to) {
     var that = this,
         text = that.rewriteCssString(css);
+
+    that.files[to] = fs.statSync(to).size;
 
     fs.writeFileSync(to + '.munched', (this.compress['css']) ? this.compressCss(text): text);
 
@@ -539,6 +576,8 @@ Muncher.prototype.rewriteJsBlock = function(html, compress) {
 
 Muncher.prototype.rewriteJs = function(js, to) {
     var  that = this;
+
+    that.files[to] = fs.statSync(to).size;
 
     js = that.rewriteJsString(js);
 
