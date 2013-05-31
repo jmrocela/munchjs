@@ -22,6 +22,11 @@ var    path = require('path'),
     Hashids = require('hashids'),
     hashids = new Hashids("use the force harry");
 
+/**
+ * MUNCHER!!!!
+ *
+ * @param args Object an optimist.args object.
+ */
 var Muncher = function(args) {
 
     // tokens from files within views, css and js together
@@ -97,9 +102,7 @@ var Muncher = function(args) {
 /** 
  * run
  *
- * Sets various options to run the Muncher
- *
- * @param args Object an optimist.args object.
+ * sets various options to run the Muncher
  */
 Muncher.prototype.run = function() {
 
@@ -146,6 +149,13 @@ Muncher.prototype.run = function() {
 
 }
 
+/** 
+ * read
+ *
+ * use a map file to serve as the dictionary
+ *
+ * @param read String the path to the mapfile
+ */
 Muncher.prototype.read = function(read) {
     var manifest = JSON.parse(fs.readFileSync(read, 'utf-8').toString()),
     that = this;
@@ -160,6 +170,14 @@ Muncher.prototype.read = function(read) {
 
 }
 
+/** 
+ * parseDir
+ *
+ * parse directories according to context
+ *
+ * @param path String the path of the directory
+ * @param context String either view, js or css
+ */
 Muncher.prototype.parseDir = function(path, context) {
     var that = this;
         
@@ -182,6 +200,14 @@ Muncher.prototype.parseDir = function(path, context) {
 
 }
 
+/** 
+ * buildDir
+ *
+ * build directories according to context
+ *
+ * @param path String the path of the directory
+ * @param context String either view, js or css
+ */
 Muncher.prototype.buildDir = function(path, context) {
     var that = this;    
 
@@ -203,11 +229,25 @@ Muncher.prototype.buildDir = function(path, context) {
     that.echo(clc.green.bold('Finished!\n'));
 }
 
+/** 
+ * echo
+ *
+ * wrap the console.log method
+ *
+ * @param message String
+ */
 Muncher.prototype.echo = function(message) {
     if (!this.silent) console.log(message);
 }
 
-// parse the files
+/** 
+ * parse
+ *
+ * parse files according to context
+ *
+ * @param file String the file name of the document
+ * @param context String either view, js or css
+ */
 Muncher.prototype.parse = function(file, context) {
 
     if (fs.existsSync(file)) {
@@ -233,7 +273,14 @@ Muncher.prototype.parse = function(file, context) {
 
 }
 
-// build the files
+/** 
+ * build
+ *
+ * build files according to context
+ *
+ * @param file String the file name of the document
+ * @param context String either view, js or css
+ */
 Muncher.prototype.build = function(file, context) {
 
     var content = fs.readFileSync(file, 'utf8').toString();
@@ -252,7 +299,84 @@ Muncher.prototype.build = function(file, context) {
 
 }
 
-// builds the id and class maps
+/** 
+ * addCss
+ *
+ * adds Classes to the CLASS map
+ *
+ * @param cl String
+ */
+Muncher.prototype.addClass = function(cl) {
+    var that = this;
+
+    var addClass = function(cls) {
+        if (that.ignoreClasses.indexOf(cls) > -1) return true; // shoul be a list of no-nos
+        if (!that.map["class"][cls]) {
+            that.map["class"][cls] = hashids.encrypt(that.mapCounter); 
+            that.mapCounter++;
+        }
+    }
+
+    if (typeof cl == 'object'){
+        if (cl) {
+            cl.forEach(function(pass) {
+                addClass(pass);
+            });
+        }
+    } else {
+        addClass(cl);
+    } 
+}
+
+/** 
+ * addId
+ *
+ * adds Ids to the ID map
+ *
+ * @param id String
+ */
+Muncher.prototype.addId = function(id) {
+    if (!this.map["id"][id]) {
+        if (!this.ignoreIds.indexOf(id)) return true; // shoul be a list of no-nos
+        this.map["id"][id] = hashids.encrypt(this.mapCounter);
+        this.mapCounter++;
+    }
+}
+
+/** 
+ * parseCssSelector
+ *
+ * parse CSS strings to get their classes and ids
+ *
+ * @param css String the css string
+ */
+Muncher.prototype.parseCssSelector = function(selector) {
+    var that = this,
+        match = null,
+        tid = selector.match(/#[\w\-]+/gi),
+        tcl = selector.match(/\.[\w\-]+/gi);
+
+    if (tid) {
+        tid.forEach(function(match) {
+            var id = match.replace('#', '');
+            that.addId(id);
+        });
+    }
+    if (tcl) {
+        tcl.forEach(function(match) {
+            var cl = match.replace('.', '');
+            that.addClass(cl);
+        });
+    }
+}
+
+/** 
+ * parseHtml
+ *
+ * parse HTML documents to get their classes and ids
+ *
+ * @param html String the html document
+ */
 Muncher.prototype.parseHtml = function(html) {
     var that = this,
         html = $(html);
@@ -293,26 +417,13 @@ Muncher.prototype.parseHtml = function(html) {
 
 }
 
-Muncher.prototype.parseCssSelector = function(selector) {
-    var that = this,
-        match = null,
-        tid = selector.match(/#[\w\-]+/gi),
-        tcl = selector.match(/\.[\w\-]+/gi);
-
-    if (tid) {
-        tid.forEach(function(match) {
-            var id = match.replace('#', '');
-            that.addId(id);
-        });
-    }
-    if (tcl) {
-        tcl.forEach(function(match) {
-            var cl = match.replace('.', '');
-            that.addClass(cl);
-        });
-    }
-}
-
+/** 
+ * parseCss
+ *
+ * parse CSS documents to get their classes and ids
+ *
+ * @param css String the css document
+ */
 Muncher.prototype.parseCss = function(css) { 
     var   that = this,
            css = parse(css),
@@ -335,36 +446,13 @@ Muncher.prototype.parseCss = function(css) {
     });
 }
 
-Muncher.prototype.addClass = function(cl) {
-    var that = this;
-
-    var addClass = function(cls) {
-        if (that.ignoreClasses.indexOf(cls) > -1) return true; // shoul be a list of no-nos
-        if (!that.map["class"][cls]) {
-            that.map["class"][cls] = hashids.encrypt(that.mapCounter); 
-            that.mapCounter++;
-        }
-    }
-
-    if (typeof cl == 'object'){
-        if (cl) {
-            cl.forEach(function(pass) {
-                addClass(pass);
-            });
-        }
-    } else {
-        addClass(cl);
-    } 
-}
-
-Muncher.prototype.addId = function(id) {
-    if (!this.map["id"][id]) {
-        if (!this.ignoreIds.indexOf(id)) return true; // shoul be a list of no-nos
-        this.map["id"][id] = hashids.encrypt(this.mapCounter);
-        this.mapCounter++;
-    }
-}
-
+/** 
+ * parseJs
+ *
+ * parse JS documents to get their classes and ids
+ *
+ * @param js String the js document
+ */
 Muncher.prototype.parseJs = function(js) {
     var that = this,
         match;
@@ -396,7 +484,14 @@ Muncher.prototype.parseJs = function(js) {
 
 }
 
-// replaces the ids and classes in the files specified
+/** 
+ * rewriteHtml
+ *
+ * replaces the ids and classes in the files specified
+ *
+ * @param html String the html document
+ * @param to String the file name
+ */
 Muncher.prototype.rewriteHtml = function(html, to) {
     var     that = this,
         document = jsdom(html),
@@ -438,6 +533,13 @@ Muncher.prototype.rewriteHtml = function(html, to) {
     that.echo(savings + to + '.munched');
 }
 
+/** 
+ * rewriteCssString
+ *
+ * rewrite a CSS String
+ *
+ * @param css String the css document
+ */
 Muncher.prototype.rewriteCssString = function(css) {
     var   that = this,
           text = css,
@@ -482,6 +584,14 @@ Muncher.prototype.rewriteCssString = function(css) {
     return text;
 }
 
+/** 
+ * rewriteCssBlock
+ *
+ * rewrite a CSS block in an html document
+ *
+ * @param html String the html document
+ * @param compress Boolean flag whether to compress the CSS block
+ */
 Muncher.prototype.rewriteCssBlock = function(html, compress) {
     var     that = this,
         document = jsdom(html),
@@ -500,6 +610,14 @@ Muncher.prototype.rewriteCssBlock = function(html, compress) {
     return document.innerHTML;
 }
 
+/** 
+ * rewriteCss
+ *
+ * rewrite a CSS file
+ *
+ * @param css String the css document
+ * @param to String the file name
+ */
 Muncher.prototype.rewriteCss = function(css, to) {
     var that = this,
         text = that.rewriteCssString(css);
@@ -513,7 +631,13 @@ Muncher.prototype.rewriteCss = function(css, to) {
     that.echo(savings + to + '.munched');
 }
 
-
+/** 
+ * rewriteJsString
+ *
+ * rewrite a JS String
+ *
+ * @param js String the js document
+ */
 Muncher.prototype.rewriteJsString = function(js) {
     var  that = this,
         match = null;
@@ -561,6 +685,14 @@ Muncher.prototype.rewriteJsString = function(js) {
     return js;
 }
 
+/** 
+ * rewriteJsBlock
+ *
+ * rewrite a JS block in an html document
+ *
+ * @param html String the html document
+ * @param compress Boolean flag whether to compress the JS block
+ */
 Muncher.prototype.rewriteJsBlock = function(html, compress) {
     var     that = this,
         document = jsdom(html),
@@ -580,6 +712,14 @@ Muncher.prototype.rewriteJsBlock = function(html, compress) {
     return block;
 }
 
+/** 
+ * rewriteJs
+ *
+ * rewrite a JS file
+ *
+ * @param js String the js document
+ * @param to String the file name
+ */
 Muncher.prototype.rewriteJs = function(js, to) {
     var  that = this;
 
@@ -675,6 +815,13 @@ Muncher.prototype.addJsParser = function(cb) {
     }
 }
 
+/** 
+ * addJsWriter
+ *
+ * plug different JS writers here. Writers are loaded dynamically from the `parsers` folder
+ *
+ * @param cb Function the callback for writing JS Strings
+ */
 Muncher.prototype.addJsWriter = function(cb) {
     if (typeof cb == 'function') {
         this.writers.js.push(cb);
