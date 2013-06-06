@@ -28,7 +28,6 @@ var    path = require('path'),
  * @param args Object an optimist.args object.
  */
 var Muncher = function(args) {
-
     // tokens from files within views, css and js together
     this.map = {
         "id": {},
@@ -42,8 +41,25 @@ var Muncher = function(args) {
     this.mapCounter = 0;
 
     // ignore classes
-    this.ignoreClasses = [ "no-js" ]; // @BUG not respected, related to not properly iterating over arrays
+    this.ignoreClasses = [ ];
     this.ignoreIds = [ ];
+
+    // custom parser collection
+    this.parsers = {
+        "js": []
+    }
+
+    this.writers = {
+        "js": []
+    }
+
+    // pass to the init function
+    if (args) {
+        this.init(args);
+    }
+}
+
+Muncher.prototype.init = function(args) {
 
     // a reference to `this`
     var that = this;
@@ -84,15 +100,6 @@ var Muncher = function(args) {
         "view": args['view'],
         "css": args['css'],
         "js": args['js']
-    }
-
-    // custom parser collection
-    this.parsers = {
-        "js": []
-    }
-
-    this.writers = {
-        "js": []
     }
 
     // chainable
@@ -850,6 +857,7 @@ exports.run = function() {
     // fetch the script options from CLI
     var args = require('optimist')
                     .usage(fs.readFileSync('./usage').toString())
+                    .demand(['view'])
                     .argv;
 
     // we have a settings file specifically specified or args is empty
@@ -905,5 +913,8 @@ exports.run = function() {
     // bon appetit`
     munch.run();
 }
+
+// expose for testing
+exports.Muncher = Muncher;
 
 // have fun <3
